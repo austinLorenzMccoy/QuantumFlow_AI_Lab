@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Trading Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f7fa;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        h1 {
+            margin: 0;
+        }
+        .status {
+            background-color: #e74c3c;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .status.connected {
+            background-color: #27ae60;
+        }
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        .card h2 {
+            margin-top: 0;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .price {
+            font-size: 2em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .price-change {
+            font-size: 1.2em;
+            margin-left: 10px;
+        }
+        .price-change.positive {
+            color: #27ae60;
+        }
+        .price-change.negative {
+            color: #e74c3c;
+        }
+        .chart-container {
+            height: 200px;
+            margin-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background-color: #f9f9f9;
+        }
+        .signal {
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        .signal.buy {
+            background-color: #d5f5e3;
+            color: #27ae60;
+        }
+        .signal.sell {
+            background-color: #fce8e8;
+            color: #e74c3c;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Crypto Trading Dashboard</h1>
+    </header>
+    
+    <div class="container">
+        <div id="connection-status" class="status">Disconnected</div>
+        
+        <div class="dashboard">
+            <div class="card">
+                <h2>BTC-USDT</h2>
+                <div>
+                    <span id="btc-price" class="price">$0.00</span>
+                    <span id="btc-change" class="price-change">0.00%</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="btc-chart"></canvas>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>ETH-USDT</h2>
+                <div>
+                    <span id="eth-price" class="price">$0.00</span>
+                    <span id="eth-change" class="price-change">0.00%</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="eth-chart"></canvas>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>SOL-USDT</h2>
+                <div>
+                    <span id="sol-price" class="price">$0.00</span>
+                    <span id="sol-change" class="price-change">0.00%</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="sol-chart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Trading Signals</h2>
+            <table id="signals-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Symbol</th>
+                        <th>Price</th>
+                        <th>Signal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Signals will be added here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script>
+        // WebSocket connection
+        let socket = null;
+        let priceHistory = {
+            'BTC-USDT': [],
+            'ETH-USDT': [],
+            'SOL-USDT': []
+        };
+        let charts = {};
+        
+        // Initialize charts
+        function initCharts() {
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        display: false
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            };
+            
+            charts['BTC-USDT'] = new Chart(
+                document.getElementById('btc-chart').getContext('2d'),
+                {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'BTC-USDT',
+                            data: [],
+                            borderColor: '#f39c12',
+                            tension: 0.1
+                        }]
+                    },
+                    options: chartOptions
+                }
+            );
+            
+            charts['ETH-USDT'] = new Chart(
+                document.getElementById('eth-chart').getContext('2d'),
+                {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'ETH-USDT',
+                            data: [],
+                            borderColor: '#3498db',
+                            tension: 0.1
+                        }]
+                    },
+                    options: chartOptions
+                }
+            );
+            
+            charts['SOL-USDT'] = new Chart(
+                document.getElementById('sol-chart').getContext('2d'),
+                {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'SOL-USDT',
+                            data: [],
+                            borderColor: '#9b59b6',
+                            tension: 0.1
+                        }]
+                    },
+                    options: chartOptions
+                }
+            );
+        }
+        
+        // Update price display
+        function updatePriceDisplay(symbol, price, change) {
+            const symbolPrefix = symbol.split('-')[0].toLowerCase();
+            document.getElementById(`${symbolPrefix}-price`).textContent = `$${price.toFixed(2)}`;
+            
+            const changeElement = document.getElementById(`${symbolPrefix}-change`);
+            changeElement.textContent = `${change > 0 ? '+' : ''}${change.toFixed(2)}%`;
+            
+            if (change > 0) {
+                changeElement.className = 'price-change positive';
+            } else if (change < 0) {
+                changeElement.className = 'price-change negative';
+            } else {
+                changeElement.className = 'price-change';
+            }
+        }
+        
+        // Update chart
+        function updateChart(symbol, timestamp, price) {
+            if (!charts[symbol]) return;
+            
+            const date = new Date(timestamp * 1000);
+            const timeStr = date.toLocaleTimeString();
+            
+            charts[symbol].data.labels.push(timeStr);
+            charts[symbol].data.datasets[0].data.push(price);
+            
+            // Keep only the last 30 data points
+            if (charts[symbol].data.labels.length > 30) {
+                charts[symbol].data.labels.shift();
+                charts[symbol].data.datasets[0].data.shift();
+            }
+            
+            charts[symbol].update();
+        }
+        
+        // Add trading signal to the table
+        function addSignal(signal) {
+            const table = document.getElementById('signals-table').getElementsByTagName('tbody')[0];
+            const row = table.insertRow(0);
+            
+            const timeCell = row.insertCell(0);
+            const symbolCell = row.insertCell(1);
+            const priceCell = row.insertCell(2);
+            const signalCell = row.insertCell(3);
+            
+            const date = new Date(signal.timestamp * 1000);
+            timeCell.textContent = date.toLocaleTimeString();
+            symbolCell.textContent = signal.symbol;
+            priceCell.textContent = `$${signal.price.toFixed(2)}`;
+            
+            const signalSpan = document.createElement('span');
+            signalSpan.textContent = signal.signal;
+            signalSpan.className = `signal ${signal.signal.toLowerCase()}`;
+            signalCell.appendChild(signalSpan);
+            
+            // Keep only the last 10 rows
+            if (table.rows.length > 10) {
+                table.deleteRow(table.rows.length - 1);
+            }
+        }
+        
+        // Connect to WebSocket server
+        function connect() {
+            if (socket) {
+                socket.close();
+            }
+            
+            const serverUrl = 'ws://localhost:8765';
+            socket = new WebSocket(serverUrl);
+            
+            socket.onopen = () => {
+                console.log('Connected to WebSocket server');
+                document.getElementById('connection-status').textContent = 'Connected';
+                document.getElementById('connection-status').className = 'status connected';
+                
+                // Send subscription message
+                socket.send(JSON.stringify({
+                    action: 'subscribe'
+                }));
+            };
+            
+            socket.onclose = () => {
+                console.log('Disconnected from WebSocket server');
+                document.getElementById('connection-status').textContent = 'Disconnected';
+                document.getElementById('connection-status').className = 'status';
+                
+                // Try to reconnect after 5 seconds
+                setTimeout(connect, 5000);
+            };
+            
+            socket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+            
+            socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'init') {
+                        // Initialize with historical data
+                        priceHistory = data.price_history;
+                        
+                        // Initialize charts with historical data
+                        for (const symbol in priceHistory) {
+                            if (priceHistory[symbol].length > 0) {
+                                const prices = priceHistory[symbol];
+                                
+                                // Calculate price change
+                                const firstPrice = prices[0].price;
+                                const lastPrice = prices[prices.length - 1].price;
+                                const change = ((lastPrice - firstPrice) / firstPrice) * 100;
+                                
+                                // Update price display
+                                updatePriceDisplay(symbol, lastPrice, change);
+                                
+                                // Update chart
+                                for (const dataPoint of prices) {
+                                    updateChart(symbol, dataPoint.timestamp, dataPoint.price);
+                                }
+                            }
+                        }
+                        
+                        // Add trading signals
+                        for (const signal of data.trading_signals) {
+                            addSignal(signal);
+                        }
+                    } else if (data.type === 'market_data') {
+                        // Update price history
+                        if (!priceHistory[data.symbol]) {
+                            priceHistory[data.symbol] = [];
+                        }
+                        
+                        priceHistory[data.symbol].push({
+                            price: data.price,
+                            timestamp: data.timestamp
+                        });
+                        
+                        // Keep only the last 100 data points
+                        if (priceHistory[data.symbol].length > 100) {
+                            priceHistory[data.symbol].shift();
+                        }
+                        
+                        // Calculate price change (last 24 hours)
+                        const prices = priceHistory[data.symbol];
+                        if (prices.length > 1) {
+                            const lastPrice = prices[prices.length - 1].price;
+                            const firstPrice = prices[0].price;
+                            const change = ((lastPrice - firstPrice) / firstPrice) * 100;
+                            
+                            // Update price display
+                            updatePriceDisplay(data.symbol, data.price, change);
+                            
+                            // Update chart
+                            updateChart(data.symbol, data.timestamp, data.price);
+                        }
+                    } else if (data.type === 'signal') {
+                        // Add trading signal
+                        addSignal(data);
+                    }
+                } catch (error) {
+                    console.error('Error processing message:', error);
+                }
+            };
+        }
+        
+        // Initialize charts and connect to WebSocket server
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            connect();
+        });
+    </script>
+</body>
+</html>
