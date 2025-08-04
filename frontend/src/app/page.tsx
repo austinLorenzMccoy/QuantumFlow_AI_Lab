@@ -46,6 +46,8 @@ export default function QuantumFlowDashboard() {
   const [isMounted, setIsMounted] = useState(false)
   const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false)
   const [strategyResult, setStrategyResult] = useState<string | null>(null)
+  const [aiInsights, setAiInsights] = useState<Array<{id: string, type: string, message: string, confidence: number, timestamp: Date, icon: string}>>([])
+  const [chartData, setChartData] = useState<Array<{time: string, value: number}>>([])
 
   // Simulate real-time data updates
   useEffect(() => {
@@ -152,6 +154,69 @@ export default function QuantumFlowDashboard() {
       setIsGeneratingStrategy(false)
     }
   }
+
+  // Simulate real-time AI insights
+  useEffect(() => {
+    const insights = [
+      { type: 'strategy', message: 'Momentum strategy identified for tech stocks. High confidence signal detected.', confidence: 92, icon: '🎯' },
+      { type: 'rl_update', message: 'Reinforcement learning model improved performance by 2.3%.', confidence: 87, icon: '🤖' },
+      { type: 'market_analysis', message: 'Bullish sentiment detected across major indices. Volume indicators strong.', confidence: 78, icon: '📈' },
+      { type: 'risk_alert', message: 'Volatility spike detected in energy sector. Adjusting position sizes.', confidence: 85, icon: '⚠️' },
+      { type: 'opportunity', message: 'Arbitrage opportunity identified between NYSE and NASDAQ.', confidence: 94, icon: '💎' },
+      { type: 'sentiment', message: 'Social media sentiment turning positive for crypto assets.', confidence: 73, icon: '🌊' }
+    ]
+
+    const addInsight = () => {
+      const randomInsight = insights[Math.floor(Math.random() * insights.length)]
+      const newInsight = {
+        id: Date.now().toString(),
+        ...randomInsight,
+        timestamp: new Date()
+      }
+      
+      setAiInsights(prev => {
+        const updated = [newInsight, ...prev].slice(0, 5) // Keep only last 5
+        return updated
+      })
+    }
+
+    // Add initial insights
+    setTimeout(() => addInsight(), 2000)
+    setTimeout(() => addInsight(), 5000)
+    setTimeout(() => addInsight(), 8000)
+
+    // Continue adding insights every 15-30 seconds
+    const interval = setInterval(() => {
+      if (Math.random() > 0.3) { // 70% chance to add new insight
+        addInsight()
+      }
+    }, Math.random() * 15000 + 15000) // 15-30 seconds
+
+    return () => clearInterval(interval)
+  }, [])
+
+  // Generate real-time chart data
+  useEffect(() => {
+    // Initialize with some data points
+    const initialData = Array.from({ length: 20 }, (_, i) => ({
+      time: new Date(Date.now() - (19 - i) * 30000).toLocaleTimeString(),
+      value: 100 + Math.random() * 20 - 10
+    }))
+    setChartData(initialData)
+
+    // Update chart data every 5 seconds
+    const chartInterval = setInterval(() => {
+      setChartData(prev => {
+        const newPoint = {
+          time: new Date().toLocaleTimeString(),
+          value: prev[prev.length - 1]?.value + (Math.random() * 6 - 3) || 100
+        }
+        return [...prev.slice(-19), newPoint] // Keep last 20 points
+      })
+    }, 5000)
+
+    return () => clearInterval(chartInterval)
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
@@ -264,6 +329,125 @@ export default function QuantumFlowDashboard() {
           </Card>
         </div>
 
+        {/* Real-time Chart */}
+        <Card className="bg-black/40 border-white/10 backdrop-blur-sm mb-8">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center">
+              <BarChart3 className="h-5 w-5 mr-2 text-blue-400" />
+              Portfolio Performance
+            </CardTitle>
+            <CardDescription className="text-gray-400">
+              Real-time portfolio value tracking
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64 w-full">
+              <svg className="w-full h-full" viewBox="0 0 800 200">
+                {/* Grid lines */}
+                <defs>
+                  <pattern id="grid" width="40" height="20" patternUnits="userSpaceOnUse">
+                    <path d="M 40 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5"/>
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grid)" />
+                
+                {/* Chart line */}
+                {chartData.length > 1 && (
+                  <>
+                    {/* Area under the curve */}
+                    <path
+                      d={`M 0 200 ${chartData.map((point, index) => {
+                        const x = (index / (chartData.length - 1)) * 800
+                        const y = 200 - ((point.value - 80) / 40) * 180
+                        return `L ${x} ${y}`
+                      }).join(' ')} L 800 200 Z`}
+                      fill="url(#gradient)"
+                      opacity="0.3"
+                    />
+                    
+                    {/* Main line */}
+                    <path
+                      d={`M ${chartData.map((point, index) => {
+                        const x = (index / (chartData.length - 1)) * 800
+                        const y = 200 - ((point.value - 80) / 40) * 180
+                        return `${x} ${y}`
+                      }).join(' L ')}`}
+                      fill="none"
+                      stroke="#3B82F6"
+                      strokeWidth="2"
+                      className="animate-pulse"
+                    />
+                    
+                    {/* Data points */}
+                    {chartData.map((point, index) => {
+                      const x = (index / (chartData.length - 1)) * 800
+                      const y = 200 - ((point.value - 80) / 40) * 180
+                      const isLast = index === chartData.length - 1
+                      
+                      return (
+                        <circle
+                          key={index}
+                          cx={x}
+                          cy={y}
+                          r={isLast ? "4" : "2"}
+                          fill={isLast ? "#3B82F6" : "#1E40AF"}
+                          className={isLast ? "animate-pulse" : ""}
+                        >
+                          {isLast && (
+                            <animate
+                              attributeName="r"
+                              values="4;6;4"
+                              dur="2s"
+                              repeatCount="indefinite"
+                            />
+                          )}
+                        </circle>
+                      )
+                    })}
+                  </>
+                )}
+                
+                {/* Gradient definition */}
+                <defs>
+                  <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.8" />
+                    <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.1" />
+                  </linearGradient>
+                </defs>
+                
+                {/* Current value indicator */}
+                {chartData.length > 0 && (
+                  <text
+                    x="750"
+                    y="30"
+                    fill="#3B82F6"
+                    fontSize="16"
+                    fontWeight="bold"
+                    textAnchor="end"
+                  >
+                    ${chartData[chartData.length - 1]?.value.toFixed(2)}
+                  </text>
+                )}
+              </svg>
+            </div>
+            
+            {/* Chart controls and info */}
+            <div className="mt-4 flex items-center justify-between text-sm">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-blue-400 rounded-full animate-pulse" />
+                  <span className="text-gray-400">Live Updates</span>
+                </div>
+                <span className="text-gray-500">•</span>
+                <span className="text-gray-400">Last 10 minutes</span>
+              </div>
+              <div className="text-gray-400">
+                {chartData.length > 0 && `Updated: ${chartData[chartData.length - 1]?.time}`}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Market Data */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <Card className="bg-black/40 border-white/10 backdrop-blur-sm">
@@ -341,24 +525,75 @@ export default function QuantumFlowDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                  <div className="flex items-center mb-2">
-                    <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30">Strategy Generated</Badge>
+              <div className="space-y-3 max-h-80 overflow-y-auto">
+                {aiInsights.length === 0 ? (
+                  <div className="text-center text-gray-400 py-8">
+                    <Brain className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>AI insights loading...</p>
                   </div>
-                  <p className="text-sm text-gray-300">Momentum strategy identified for tech stocks. High confidence signal detected.</p>
-                </div>
-                <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
-                  <div className="flex items-center mb-2">
-                    <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30">RL Model Update</Badge>
-                  </div>
-                  <p className="text-sm text-gray-300">Reinforcement learning model improved performance by 2.3%.</p>
-                </div>
-                <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
-                  <div className="flex items-center mb-2">
-                    <Badge className="bg-green-500/20 text-green-300 border-green-500/30">Market Analysis</Badge>
-                  </div>
-                  <p className="text-sm text-gray-300">Bullish sentiment detected across major indices. Volume indicators strong.</p>
+                ) : (
+                  aiInsights.map((insight, index) => {
+                    const getInsightColor = (type: string) => {
+                      switch (type) {
+                        case 'strategy': return 'blue'
+                        case 'rl_update': return 'purple'
+                        case 'market_analysis': return 'green'
+                        case 'risk_alert': return 'red'
+                        case 'opportunity': return 'yellow'
+                        case 'sentiment': return 'cyan'
+                        default: return 'gray'
+                      }
+                    }
+                    
+                    const color = getInsightColor(insight.type)
+                    const isNew = index === 0 && Date.now() - insight.timestamp.getTime() < 3000
+                    
+                    return (
+                      <div 
+                        key={insight.id} 
+                        className={`p-4 rounded-lg bg-${color}-500/10 border border-${color}-500/20 transition-all duration-500 ${
+                          isNew ? 'animate-pulse ring-2 ring-' + color + '-400/50 scale-[1.02]' : ''
+                        }`}
+                        style={{
+                          animation: isNew ? 'slideInFromRight 0.5s ease-out' : undefined
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-lg">{insight.icon}</span>
+                            <Badge className={`bg-${color}-500/20 text-${color}-300 border-${color}-500/30 text-xs`}>
+                              {insight.type.replace('_', ' ').toUpperCase()}
+                            </Badge>
+                            <div className={`flex items-center text-${color}-400`}>
+                              <Activity className="h-3 w-3 mr-1" />
+                              <span className="text-xs font-mono">{insight.confidence}%</span>
+                            </div>
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {insight.timestamp.toLocaleTimeString()}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-300 leading-relaxed">{insight.message}</p>
+                        
+                        {/* Confidence Bar */}
+                        <div className="mt-3 w-full bg-gray-700 rounded-full h-1.5">
+                          <div 
+                            className={`bg-${color}-400 h-1.5 rounded-full transition-all duration-1000`}
+                            style={{ width: `${insight.confidence}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+              
+              {/* Real-time indicator */}
+              <div className="mt-4 flex items-center justify-center text-xs text-gray-500">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                  <span>Live AI Analysis</span>
+                  <Activity className="h-3 w-3" />
                 </div>
               </div>
             </CardContent>
