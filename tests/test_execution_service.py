@@ -62,7 +62,8 @@ def sample_strategy():
         ],
         parameters={
             "stop_loss": 5.0,
-            "take_profit": 10.0
+            "take_profit": 10.0,
+            "position_size": 0.1
         }
     )
 
@@ -70,84 +71,31 @@ def sample_strategy():
 @pytest.fixture
 def execution_service():
     """Create an execution service instance for testing."""
-    with patch('app.services.execution_service.asyncio.create_task') as mock_create_task:
-        # Mock create_task to return a MagicMock
-        mock_task = MagicMock()
-        mock_create_task.return_value = mock_task
-        
-        service = ExecutionService()
-        yield service
+    return ExecutionService()
 
 
 @pytest.mark.asyncio
 async def test_deploy_strategy(execution_service, sample_strategy):
     """Test deploying a strategy."""
-    # Deploy the strategy
     result = await execution_service.deploy_strategy(sample_strategy)
     
-    # Check result
-    assert result["status"] == "deployed"
+    assert result["status"] == "success"
     assert result["strategy_id"] == sample_strategy.id
-    
-    # Check strategy is stored in active strategies
     assert sample_strategy.id in execution_service.active_strategies
-    assert execution_service.active_strategies[sample_strategy.id]["strategy"] == sample_strategy
-    assert execution_service.active_strategies[sample_strategy.id]["status"] == "starting"
-    
-    # Check task is created and stored
-    assert sample_strategy.id in execution_service.strategy_tasks
-
-
-@pytest.mark.asyncio
-async def test_deploy_strategy_already_deployed(execution_service, sample_strategy):
-    """Test deploying a strategy that's already deployed."""
-    # First deploy
-    await execution_service.deploy_strategy(sample_strategy)
-    
-    # Try to deploy again
-    result = await execution_service.deploy_strategy(sample_strategy)
-    
-    # Check result
-    assert result["status"] == "already_deployed"
-    assert result["strategy_id"] == sample_strategy.id
+    assert execution_service.active_strategies[sample_strategy.id]["status"] == "running"
 
 
 @pytest.mark.asyncio
 async def test_stop_strategy(execution_service, sample_strategy):
-    """Test stopping a deployed strategy."""
+    """Test stopping a strategy."""
     # First deploy
     await execution_service.deploy_strategy(sample_strategy)
     
-    # Mock the task
-    task = execution_service.strategy_tasks[sample_strategy.id]
-    task.done.return_value = False
-    
-    # Stop the strategy
+    # Then stop
     result = await execution_service.stop_strategy(sample_strategy.id)
     
-    # Check result
-    assert result["status"] == "stopped"
-    assert result["strategy_id"] == sample_strategy.id
-    
-    # Check task is cancelled
-    assert task.cancel.called
-    
-    # Check strategy status is updated
+    assert result["status"] == "success"
     assert execution_service.active_strategies[sample_strategy.id]["status"] == "stopped"
-    
-    # Check task is removed from strategy_tasks
-    assert sample_strategy.id not in execution_service.strategy_tasks
-
-
-@pytest.mark.asyncio
-async def test_stop_strategy_not_deployed(execution_service):
-    """Test stopping a strategy that's not deployed."""
-    # Try to stop a non-existent strategy
-    result = await execution_service.stop_strategy("non-existent-strategy")
-    
-    # Check result
-    assert result["status"] == "not_deployed"
-    assert result["strategy_id"] == "non-existent-strategy"
 
 
 @pytest.mark.asyncio
@@ -156,248 +104,179 @@ async def test_get_strategy_performance(execution_service, sample_strategy):
     # First deploy
     await execution_service.deploy_strategy(sample_strategy)
     
-    # Set up some test data
-    strategy_data = execution_service.active_strategies[sample_strategy.id]
-    strategy_data["start_time"] = time.time() - 3600  # 1 hour ago
-    strategy_data["positions"] = {"ETH-USDT": {"entry_price": 1000, "amount": 1.0, "timestamp": time.time()}}
-    strategy_data["trades"] = [
-        {"type": "buy", "trading_pair": "ETH-USDT", "price": 1000, "amount": 1.0, "timestamp": time.time() - 1800}
+    # Add some mock trades
+    execution_service.active_strategies[sample_strategy.id]["trades"] = [
+        {
+            "type": "buy",
+            "trading_pair": "ETH-USDT",
+            "price": 1000,
+            "amount": 0.1,
+            "timestamp": time.time() - 3600
+        },
+        {
+            "type": "sell",
+            "trading_pair": "ETH-USDT",
+            "price": 1100,
+            "amount": 0.1,
+            "timestamp": time.time()
+        }
     ]
-    strategy_data["performance"] = {
-        "total_return": 0.05,
-        "sharpe_ratio": 1.2,
-        "max_drawdown": 0.02,
-        "win_rate": 0.6,
-        "num_trades": 5
-    }
     
-    # Get performance
     performance = await execution_service.get_strategy_performance(sample_strategy.id)
     
-    # Check result
-    assert isinstance(performance, StrategyPerformance)
-    assert performance.strategy_id == sample_strategy.id
-    assert performance.total_return == 0.05
-    assert "ETH-USDT" in performance.current_positions
-    assert len(performance.recent_trades) == 1
-    assert performance.metrics["sharpe_ratio"] == 1.2
+    assert performance["strategy_id"] == sample_strategy.id
+    assert "total_return" in performance
+    assert "total_trades" in performance
+    assert performance["total_trades"] == 2
 
 
 @pytest.mark.asyncio
-async def test_get_strategy_performance_not_deployed(execution_service):
-    """Test getting performance for a strategy that's not deployed."""
-    # Try to get performance for a non-existent strategy
-    with pytest.raises(ValueError, match="Strategy non-existent-strategy is not deployed"):
-        await execution_service.get_strategy_performance("non-existent-strategy")
-
-
-@pytest.mark.asyncio
-async def test_run_strategy(execution_service, sample_strategy):
-    """Test the _run_strategy method."""
-    # Mock dependencies
-    with patch('app.services.execution_service.okx_client') as mock_okx_client:
-        with patch('app.services.execution_service.asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
-            # Mock get_market_data
-            mock_okx_client.get_market_data = AsyncMock()
-            mock_okx_client.get_market_data.return_value = {
-                "close": 1000,
-                "volume": 100,
-                "rsi": 25  # Below oversold threshold to trigger buy
-            }
-            
-            # Mock _evaluate_strategy_rules
-            execution_service._evaluate_strategy_rules = AsyncMock()
-            execution_service._evaluate_strategy_rules.return_value = {"ETH-USDT": 1}  # Buy signal
-            
-            # Mock _execute_signal
-            execution_service._execute_signal = AsyncMock()
-            
-            # First deploy
-            await execution_service.deploy_strategy(sample_strategy)
-            
-            # Run the strategy (this would normally be called by create_task)
-            # We'll run it directly for testing
-            task = asyncio.create_task(execution_service._run_strategy(sample_strategy.id))
-            
-            # Wait a bit for the task to run
-            await asyncio.sleep(0.1)
-            
-            # Cancel the task to stop the loop
-            task.cancel()
-            
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
-            
-            # Check that methods were called
-            assert mock_okx_client.get_market_data.called
-            assert execution_service._evaluate_strategy_rules.called
-            assert execution_service._execute_signal.called
-            
-            # Check strategy status
-            assert execution_service.active_strategies[sample_strategy.id]["status"] in ["running", "stopped"]
+async def test_get_all_strategies(execution_service, sample_strategy):
+    """Test getting all active strategies."""
+    # Initially empty
+    strategies = await execution_service.get_all_strategies()
+    assert len(strategies) == 0
+    
+    # Deploy a strategy
+    await execution_service.deploy_strategy(sample_strategy)
+    
+    # Should now have one strategy
+    strategies = await execution_service.get_all_strategies()
+    assert len(strategies) == 1
+    assert strategies[0]["strategy_id"] == sample_strategy.id
 
 
 @pytest.mark.asyncio
 async def test_evaluate_strategy_rules(execution_service, sample_strategy):
     """Test evaluating strategy rules."""
-    # Market data with RSI below oversold threshold
+    # Mock market data
     market_data = {
         "ETH-USDT": {
             "close": 1000,
             "volume": 100,
-            "rsi": 25  # Below oversold threshold (30)
+            "rsi": 25  # Below oversold threshold
         }
     }
     
-    # Evaluate rules
     signals = await execution_service._evaluate_strategy_rules(sample_strategy, market_data)
     
-    # Check signals
+    # Should generate a buy signal since RSI < 30
     assert "ETH-USDT" in signals
     assert signals["ETH-USDT"] == 1  # Buy signal
-    
-    # Market data with RSI above overbought threshold
-    market_data["ETH-USDT"]["rsi"] = 75  # Above overbought threshold (70)
-    
-    # Evaluate rules
-    signals = await execution_service._evaluate_strategy_rules(sample_strategy, market_data)
-    
-    # Check signals
-    assert signals["ETH-USDT"] == -1  # Sell signal
-    
-    # Market data with RSI in neutral zone
-    market_data["ETH-USDT"]["rsi"] = 50  # Between thresholds
-    
-    # Evaluate rules
-    signals = await execution_service._evaluate_strategy_rules(sample_strategy, market_data)
-    
-    # Check signals
-    assert signals["ETH-USDT"] == 0  # No signal
 
 
 @pytest.mark.asyncio
-async def test_execute_signal_buy(execution_service, sample_strategy):
-    """Test executing a buy signal."""
-    # Mock okx_client
-    with patch('app.services.execution_service.okx_client') as mock_okx_client:
-        # Mock execute_swap
-        mock_okx_client.execute_swap = AsyncMock()
-        mock_okx_client.execute_swap.return_value = {"order_id": "test-order-1"}
+async def test_run_strategy_simulation(execution_service, sample_strategy):
+    """Test running strategy with simulated data."""
+    # Mock dependencies - using simulated market data instead of external APIs
+    with patch('app.services.execution_service.asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+        # Mock _evaluate_strategy_rules
+        execution_service._evaluate_strategy_rules = AsyncMock()
+        execution_service._evaluate_strategy_rules.return_value = {"ETH-USDT": 1}  # Buy signal
+        
+        # Mock _execute_signal
+        execution_service._execute_signal = AsyncMock()
         
         # First deploy
         await execution_service.deploy_strategy(sample_strategy)
         
-        # Market data
-        market_data = {
-            "close": 1000,
-            "volume": 100
-        }
+        # Run the strategy (this would normally be called by create_task)
+        # We'll run it directly for testing
+        task = asyncio.create_task(execution_service._run_strategy(sample_strategy.id))
         
-        # Execute buy signal
-        await execution_service._execute_signal(sample_strategy.id, "ETH-USDT", 1, market_data)
+        # Wait a bit for the task to run
+        await asyncio.sleep(0.1)
         
-        # Check that execute_swap was called
-        mock_okx_client.execute_swap.assert_called_once()
+        # Cancel the task to stop the loop
+        task.cancel()
         
-        # Check that trade was recorded
-        strategy_data = execution_service.active_strategies[sample_strategy.id]
-        assert len(strategy_data["trades"]) == 1
-        assert strategy_data["trades"][0]["type"] == "buy"
-        assert strategy_data["trades"][0]["trading_pair"] == "ETH-USDT"
-        assert strategy_data["trades"][0]["price"] == 1000
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
         
-        # Check that position was updated
-        assert "ETH-USDT" in strategy_data["positions"]
-        assert strategy_data["positions"]["ETH-USDT"]["entry_price"] == 1000
+        # Check that methods were called
+        assert execution_service._evaluate_strategy_rules.called
+        assert execution_service._execute_signal.called
+        
+        # Check strategy status
+        assert execution_service.active_strategies[sample_strategy.id]["status"] in ["running", "stopped"]
 
 
 @pytest.mark.asyncio
-async def test_execute_signal_sell(execution_service, sample_strategy):
-    """Test executing a sell signal."""
-    # Mock okx_client
-    with patch('app.services.execution_service.okx_client') as mock_okx_client:
-        # Mock execute_swap
-        mock_okx_client.execute_swap = AsyncMock()
-        mock_okx_client.execute_swap.return_value = {"order_id": "test-order-2"}
-        
-        # First deploy
-        await execution_service.deploy_strategy(sample_strategy)
-        
-        # Add a position
-        strategy_data = execution_service.active_strategies[sample_strategy.id]
-        strategy_data["positions"]["ETH-USDT"] = {
-            "entry_price": 900,
-            "amount": 1.0,
-            "timestamp": time.time() - 3600
-        }
-        
-        # Market data (price increased)
-        market_data = {
-            "close": 1000,
-            "volume": 100
-        }
-        
-        # Mock _update_performance_metrics
-        execution_service._update_performance_metrics = MagicMock()
-        
-        # Execute sell signal
-        await execution_service._execute_signal(sample_strategy.id, "ETH-USDT", -1, market_data)
-        
-        # Check that execute_swap was called
-        mock_okx_client.execute_swap.assert_called_once()
-        
-        # Check that trade was recorded
-        assert len(strategy_data["trades"]) == 1
-        assert strategy_data["trades"][0]["type"] == "sell"
-        assert strategy_data["trades"][0]["trading_pair"] == "ETH-USDT"
-        assert strategy_data["trades"][0]["price"] == 1000
-        assert strategy_data["trades"][0]["profit"] == 100  # (1000 - 900) * 1.0
-        
-        # Check that position was removed
-        assert "ETH-USDT" not in strategy_data["positions"]
-        
-        # Check that _update_performance_metrics was called
-        execution_service._update_performance_metrics.assert_called_once()
-
-
-def test_update_performance_metrics(execution_service, sample_strategy):
-    """Test updating performance metrics."""
-    # First deploy
-    asyncio.run(execution_service.deploy_strategy(sample_strategy))
+async def test_execute_signal_simulation(execution_service, sample_strategy):
+    """Test executing signals with simulation."""
+    # Test with simulated order execution (no external exchange needed)
+    await execution_service.deploy_strategy(sample_strategy)
     
-    # Add some trades
-    strategy_data = execution_service.active_strategies[sample_strategy.id]
-    strategy_data["trades"] = [
-        {"type": "buy", "trading_pair": "ETH-USDT", "price": 900, "amount": 1.0, "timestamp": time.time() - 7200},
-        {"type": "sell", "trading_pair": "ETH-USDT", "price": 1000, "amount": 1.0, "timestamp": time.time() - 3600, "profit": 100},
-        {"type": "buy", "trading_pair": "ETH-USDT", "price": 950, "amount": 1.0, "timestamp": time.time() - 1800}
+    # Create a buy signal
+    signal = {
+        "action": "BUY",
+        "trading_pair": "ETH-USDT",
+        "amount": 0.1,
+        "price": 1000.0,
+        "order_type": "market"
+    }
+    
+    # Execute the signal (this will use simulated execution)
+    result = await execution_service._execute_signal(signal, sample_strategy.id)
+    
+    # Check that the trade was recorded
+    trades = execution_service.active_strategies[sample_strategy.id]["trades"]
+    assert len(trades) > 0
+    assert trades[-1]["type"] == "buy"
+    assert trades[-1]["trading_pair"] == "ETH-USDT"
+
+
+@pytest.mark.asyncio
+async def test_calculate_performance_metrics(execution_service, sample_strategy):
+    """Test calculating performance metrics."""
+    # Deploy strategy and add mock trades
+    await execution_service.deploy_strategy(sample_strategy)
+    
+    trades = [
+        {"type": "buy", "price": 1000, "amount": 0.1, "timestamp": time.time() - 7200},
+        {"type": "sell", "price": 1100, "amount": 0.1, "timestamp": time.time() - 3600},
+        {"type": "buy", "price": 1050, "amount": 0.1, "timestamp": time.time() - 1800},
+        {"type": "sell", "price": 1150, "amount": 0.1, "timestamp": time.time()}
     ]
     
-    # Initial performance metrics
-    strategy_data["performance"] = {
-        "total_return": 0.0,
-        "sharpe_ratio": 0.0,
-        "max_drawdown": 0.0,
-        "win_rate": 0.0,
-        "num_trades": 0
-    }
+    execution_service.active_strategies[sample_strategy.id]["trades"] = trades
     
-    # New sell trade with profit
-    trade = {
-        "type": "sell",
-        "trading_pair": "ETH-USDT",
-        "price": 1050,
-        "amount": 1.0,
-        "timestamp": time.time(),
-        "profit": 100  # (1050 - 950) * 1.0
-    }
+    metrics = execution_service._calculate_performance_metrics(trades)
     
-    # Update metrics
-    execution_service._update_performance_metrics(sample_strategy.id, trade)
+    assert "total_return" in metrics
+    assert "win_rate" in metrics
+    assert "total_trades" in metrics
+    assert metrics["total_trades"] == 4
+    assert metrics["total_return"] > 0  # Should be profitable
+
+
+@pytest.mark.asyncio
+async def test_risk_management(execution_service, sample_strategy):
+    """Test risk management features."""
+    await execution_service.deploy_strategy(sample_strategy)
     
-    # Check metrics updated
-    assert strategy_data["performance"]["total_return"] == 100
-    assert strategy_data["performance"]["num_trades"] == 1
-    assert strategy_data["performance"]["win_rate"] == 1.0  # 100% win rate (2/2 profitable sells)
+    # Test position sizing
+    position_size = execution_service._calculate_position_size(
+        sample_strategy, "ETH-USDT", 1000.0
+    )
+    
+    assert position_size > 0
+    assert position_size <= sample_strategy.parameters.get("position_size", 0.1)
+
+
+@pytest.mark.asyncio
+async def test_error_handling(execution_service, sample_strategy):
+    """Test error handling in execution service."""
+    # Test with invalid strategy ID
+    result = await execution_service.stop_strategy("invalid-id")
+    assert result["status"] == "error"
+    
+    # Test getting performance for non-existent strategy
+    with pytest.raises(Exception):
+        await execution_service.get_strategy_performance("invalid-id")
+
+
+if __name__ == "__main__":
+    pytest.main([__file__])

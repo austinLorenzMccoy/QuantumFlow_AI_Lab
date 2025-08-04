@@ -1,73 +1,127 @@
-"""
-Test script for the Sentiment Analysis Service.
-
-This script demonstrates how to use the sentiment analysis service
-to analyze cryptocurrency sentiment from various sources and generate
-trading signals based on the sentiment data.
-"""
-
+import pytest
 import asyncio
-import logging
-import sys
-import os
-import json
-from datetime import datetime
-
-# Add the project root to the Python path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+from unittest.mock import patch, MagicMock, AsyncMock
 from app.services.sentiment_analysis_service import SentimentAnalysisService
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+
+@pytest.fixture
+def sentiment_service():
+    """Create a sentiment analysis service instance for testing."""
+    return SentimentAnalysisService(websocket_channel="test_sentiment")
 
 
-async def test_sentiment_analysis():
-    """Test the sentiment analysis service."""
-    logger.info("Initializing sentiment analysis service...")
+@pytest.mark.asyncio
+async def test_sentiment_service_initialization(sentiment_service):
+    """Test sentiment service initialization."""
+    with patch.object(sentiment_service, '_collect_news_sentiment', new_callable=AsyncMock):
+        with patch.object(sentiment_service, '_collect_social_sentiment', new_callable=AsyncMock):
+            await sentiment_service.initialize()
+            assert sentiment_service.is_initialized
+
+
+@pytest.mark.asyncio
+async def test_get_sentiment_data(sentiment_service):
+    """Test getting sentiment data for a cryptocurrency."""
+    # Mock sentiment data
+    mock_sentiment = {
+        "symbol": "BTC",
+        "sentiment_score": 0.75,
+        "sentiment_label": "bullish",
+        "volume": 1500,
+        "trend": 0.12,
+        "sources": {
+            "news": {"count": 50, "avg_sentiment": 0.8},
+            "social": {"count": 1450, "avg_sentiment": 0.74}
+        }
+    }
     
-    # Initialize the service
-    service = SentimentAnalysisService(websocket_channel="sentiment_updates")
-    await service.initialize()
+    sentiment_service.sentiment_data["BTC"] = mock_sentiment
     
-    # Wait for initial data collection
-    logger.info("Waiting for initial data collection (30 seconds)...")
-    await asyncio.sleep(30)
+    result = await sentiment_service.get_sentiment("BTC")
     
-    # Get sentiment for Bitcoin
-    btc_sentiment = await service.get_sentiment("BTC")
-    if btc_sentiment:
-        logger.info(f"Bitcoin sentiment: {btc_sentiment.sentiment_label} ({btc_sentiment.sentiment_score:.2f})")
-        logger.info(f"Volume: {btc_sentiment.volume} mentions")
-        logger.info(f"Trend: {btc_sentiment.trend:.2f}")
-        logger.info(f"Sources: {json.dumps(btc_sentiment.sources, indent=2)}")
-    else:
-        logger.info("No sentiment data available for Bitcoin yet")
+    assert result is not None
+    assert result.symbol == "BTC"
+    assert result.sentiment_score == 0.75
+    assert result.sentiment_label == "bullish"
+
+
+@pytest.mark.asyncio
+async def test_get_all_sentiment_data(sentiment_service):
+    """Test getting all sentiment data."""
+    # Mock multiple cryptocurrency sentiment data
+    mock_data = {
+        "BTC": {
+            "symbol": "BTC",
+            "sentiment_score": 0.75,
+            "sentiment_label": "bullish",
+            "volume": 1500,
+            "trend": 0.12
+        },
+        "ETH": {
+            "symbol": "ETH",
+            "sentiment_score": 0.65,
+            "sentiment_label": "bullish",
+            "volume": 1200,
+            "trend": 0.08
+        }
+    }
     
-    # Get market sentiment
-    market_sentiment = await service.get_market_sentiment()
-    logger.info(f"Market sentiment: {market_sentiment['sentiment_label']} ({market_sentiment['sentiment_score']:.2f})")
-    logger.info(f"FUD level: {market_sentiment['fud_level']:.2f}")
-    logger.info(f"FOMO level: {market_sentiment['fomo_level']:.2f}")
+    sentiment_service.sentiment_data = mock_data
     
-    # Generate trading signals
-    signals = await service.generate_trading_signals()
-    logger.info(f"Generated {len(signals)} trading signals:")
-    for symbol, signal in signals.items():
-        logger.info(f"  {symbol}: {signal['signal']} (strength: {signal['strength']:.2f}) - {signal['reason']}")
+    result = await sentiment_service.get_all_sentiment()
     
-    # Get all sentiments
-    all_sentiments = await service.get_all_sentiments()
-    logger.info(f"Sentiment data available for {len(all_sentiments)} cryptocurrencies:")
-    for symbol in all_sentiments:
-        logger.info(f"  {symbol}")
+    assert len(result) == 2
+    assert any(s.symbol == "BTC" for s in result)
+    assert any(s.symbol == "ETH" for s in result)
+
+
+@pytest.mark.asyncio
+async def test_generate_trading_signals(sentiment_service):
+    """Test generating trading signals based on sentiment."""
+    # Mock sentiment data
+    mock_data = {
+        "BTC": {
+            "sentiment_score": 0.85,  # Very bullish
+            "sentiment_label": "very_bullish",
+            "volume": 2000,
+            "trend": 0.15
+        },
+        "ETH": {
+            "sentiment_score": 0.25,  # Bearish
+            "sentiment_label": "bearish",
+            "volume": 1500,
+            "trend": -0.10
+        }
+    }
     
-    logger.info("Sentiment analysis test completed")
+    sentiment_service.sentiment_data = mock_data
+    
+    signals = await sentiment_service.get_trading_signals()
+    
+    assert len(signals) > 0
+    
+    # Check for BTC buy signal (very bullish sentiment)
+    btc_signals = [s for s in signals if s["symbol"] == "BTC"]
+    assert len(btc_signals) > 0
+    assert btc_signals[0]["signal"] == "BUY"
+
+
+@pytest.mark.asyncio
+async def test_sentiment_classification(sentiment_service):
+    """Test sentiment score classification."""
+    # Test various sentiment scores
+    test_cases = [
+        (0.9, "very_bullish"),
+        (0.7, "bullish"),
+        (0.55, "neutral"),
+        (0.3, "bearish"),
+        (0.1, "very_bearish")
+    ]
+    
+    for score, expected_label in test_cases:
+        label = sentiment_service._classify_sentiment(score)
+        assert label == expected_label
 
 
 if __name__ == "__main__":
-    asyncio.run(test_sentiment_analysis())
+    pytest.main([__file__])

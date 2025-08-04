@@ -28,7 +28,8 @@ from typing import Dict, Any, List, Optional, Union
 from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
 
-from app.core.okx_client import okx_client
+# Generic market client - can be configured for any exchange
+# from app.core.market_client import market_client
 from app.services.websocket_service import MessagePublisher
 from app.core.config import get_settings
 
@@ -332,8 +333,16 @@ class TransactionSimulationService:
                 if datetime.now() - cache_time < timedelta(seconds=60):
                     return cache_data
             
-            # Fetch from API
-            response = await okx_client.get_market_data(trading_pair)
+            # Simulate market data fetch
+            response = {
+                "data": [{
+                    "last": "50000.0",
+                    "bidPx": "49995.0",
+                    "askPx": "50005.0",
+                    "vol24h": "1000000",
+                    "volCcy24h": "50000000000"
+                }]
+            }
             
             # Check for errors
             if "error" in response:

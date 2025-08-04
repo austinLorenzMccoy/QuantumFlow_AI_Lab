@@ -20,7 +20,8 @@ from stable_baselines3.common.evaluation import evaluate_policy
 # Project imports
 from app.models.strategy import Strategy, BacktestResult, TradeSignal
 from app.core.config import get_settings
-from app.core.okx_client import okx_client
+# Generic market client - can be configured for any exchange
+# from app.core.market_client import market_client
 from app.services.websocket_service import MessagePublisher
 from app.utils.data_utils import calculate_indicators, normalize_data
 
@@ -712,6 +713,14 @@ class RLService:
                 n_epochs=10,
                 gamma=0.99,
                 gae_lambda=0.95,
+                verbose=1
+            )
+            
+            # Train the model
+            model.learn(total_timesteps=10000)
+            
+            # Return optimized strategy (placeholder)
+            return strategy
         except Exception as e:
             logger.error(f"Error training model for strategy {strategy_id}: {str(e)}")
             if websocket_channel:
@@ -821,13 +830,6 @@ class RLService:
             return {"status": "stopped", "message": f"Optimization for strategy {strategy_id} has been stopped"}
         else:
             return {"status": "already_completed", "message": f"Optimization for strategy {strategy_id} already completed"}
-            
-            logger.info(f"Backtest complete with return: {metrics['total_return']:.2%}")
-            return result
-            
-        except Exception as e:
-            logger.error(f"Error backtesting strategy: {str(e)}")
-            raise
 
 
 # Create a singleton instance

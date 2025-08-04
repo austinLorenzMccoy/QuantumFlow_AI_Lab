@@ -9,7 +9,7 @@ ai_strategy_lab/
 │   ├── core/
 │   │   ├── __init__.py
 │   │   ├── config.py        # Configuration management
-│   │   ├── okx_client.py    # OKX API client
+│   │   ├── (removed okx_client.py - now using generic market clients)
 │   ├── models/
 │   │   ├── __init__.py
 │   │   ├── strategy.py      # Strategy data models

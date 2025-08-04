@@ -12,7 +12,7 @@ class Settings(BaseModel):
     """Application settings loaded from environment variables."""
     
     # App settings
-    APP_NAME: str = os.getenv("APP_NAME", "AI_Strategy_Lab")
+    APP_NAME: str = os.getenv("APP_NAME", "QuantumFlow_AI_Lab")
     DEBUG: bool = os.getenv("DEBUG", "False").lower() in ["true", "1", "t"]
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     
@@ -20,15 +20,17 @@ class Settings(BaseModel):
     HOST: str = os.getenv("HOST", "0.0.0.0")
     PORT: int = int(os.getenv("PORT", "8000"))
     
-    # OKX API settings
-    OKX_API_KEY: str = os.getenv("OKX_API_KEY", "")
-    OKX_SECRET_KEY: str = os.getenv("OKX_SECRET_KEY", "")
-    OKX_PASSPHRASE: str = os.getenv("OKX_PASSPHRASE", "")
-    OKX_API_BASE_URL: str = os.getenv("OKX_API_BASE_URL", "https://www.okx.com")
+    # Marketstack API credentials (Real Stock Market Data)
+    MARKET_API_KEY: str = os.getenv("MARKET_API_KEY", "5f89fdc8090654bd9fb7a55236cf6ffe")
+    MARKET_SECRET_KEY: str = os.getenv("MARKET_SECRET_KEY", "")  # Not used by Marketstack
+    MARKET_PASSPHRASE: str = os.getenv("MARKET_PASSPHRASE", "")  # Not used by Marketstack
+    MARKET_API_BASE_URL: str = os.getenv("MARKET_API_BASE_URL", "http://api.marketstack.com/v1")
     
     # LLM settings
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-4")
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")  # Keep for backward compatibility
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "llama3-8b-8192")
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "groq")
     
     # RAG settings
     VECTOR_DB_PATH: str = os.getenv("VECTOR_DB_PATH", "./data/vector_db")
@@ -36,7 +38,7 @@ class Settings(BaseModel):
     
     # RL settings
     RL_MODEL_PATH: str = os.getenv("RL_MODEL_PATH", "./models/rl")
-    SIMULATION_ENVIRONMENT: str = os.getenv("SIMULATION_ENVIRONMENT", "OKXMarketEnv")
+    SIMULATION_ENVIRONMENT: str = os.getenv("SIMULATION_ENVIRONMENT", "GenericMarketEnv")
     
     # Strategy settings
     DEFAULT_RISK_TOLERANCE: str = os.getenv("DEFAULT_RISK_TOLERANCE", "medium")

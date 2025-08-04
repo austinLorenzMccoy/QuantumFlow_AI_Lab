@@ -1,6 +1,6 @@
-# OKX AI Strategy Lab 🚀
+# QuantumFlow AI Lab 🚀
 
-![AI Strategy Lab](https://img.shields.io/badge/AI-Strategy%20Lab-blue)
+![QuantumFlow AI Lab](https://img.shields.io/badge/QuantumFlow-AI%20Lab-blue)
 ![Python](https://img.shields.io/badge/Python-3.9%2B-brightgreen)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115.0%2B-ff69b4)
 ![LangChain](https://img.shields.io/badge/LangChain-0.3.0%2B-orange)
@@ -11,21 +11,22 @@
 
 ## 📚 Overview
 
-The **OKX AI Strategy Lab** is a cutting-edge AI-driven platform for generating, optimizing, and executing crypto trading strategies. It combines the power of Large Language Models (LLMs), Reinforcement Learning (RL), multi-agent systems, and sentiment analysis to create adaptive trading strategies that can respond to market conditions in real-time. The platform includes comprehensive transaction simulation capabilities and sentiment analysis to enhance decision-making and risk management.
+The **QuantumFlow AI Lab** is a cutting-edge AI-driven platform for generating, optimizing, and executing crypto trading strategies. It combines the power of Large Language Models (LLMs), Reinforcement Learning (RL), multi-agent systems, and sentiment analysis to create adaptive trading strategies that can respond to market conditions in real-time. The platform includes comprehensive transaction simulation capabilities and sentiment analysis to enhance decision-making and risk management.
 
 <div align="center">
-  <img src="https://via.placeholder.com/800x400?text=OKX+AI+Strategy+Lab" alt="OKX AI Strategy Lab" width="800"/>
+  <img src="https://via.placeholder.com/800x400?text=QuantumFlow+AI+Strategy+Lab" alt="QuantumFlow AI Strategy Lab" width="800"/>
 </div>
 
-## ✨ Key Features
+## 🚀 Key Features
 
-- **AI-Driven Strategy Generation**: Leverage LLMs and RAG to create customized trading strategies based on user goals
-- **Reinforcement Learning Optimization**: Continuously refine strategies using advanced RL algorithms (PPO, A2C, SAC, TD3) with sophisticated reward functions and risk management
-- **Multi-Agent Collaboration**: Utilize specialized agents for data analysis, strategy optimization, and execution with real-time communication
-- **Real-Time Execution**: Execute strategies via OKX Swap API with transaction simulation and real-time monitoring
-- **Sentiment Analysis**: Process crypto news and social media to generate market sentiment indicators and trading signals
-- **Transaction Simulation**: Stress-test strategies with comprehensive risk metrics and market impact estimation
-- **WebSocket Integration**: Real-time data streaming for market data, trading signals, and sentiment updates
+- **Real Stock Market Data**: Integrated with Marketstack API for live stock data from 70+ exchanges
+- **Multi-Agent AI Systems**: Collaborative AI agents using Autogen
+- **RAG-Enhanced Strategy Generation**: Retrieval-augmented generation for intelligent trading strategies
+- **Advanced RL Optimization**: Multiple reinforcement learning algorithms (PPO, A2C, DQN)
+- **Real-time WebSocket Integration**: Live data streaming and updates
+- **Comprehensive Sentiment Analysis**: Multi-source market sentiment processing
+- **Transaction Simulation & Backtesting**: Risk-free strategy testing
+- **Interactive Demo Dashboard**: Beautiful web interface showcasing all features
 
 ## 🏗️ Architecture
 
@@ -37,7 +38,7 @@ The AI Strategy Lab is built on a hybrid architecture combining:
 4. **LangChain Orchestration** for workflow management
 
 <div align="center">
-  <img src="https://via.placeholder.com/800x500?text=AI+Strategy+Lab+Architecture" alt="Architecture Diagram" width="800"/>
+  <img src="https://via.placeholder.com/800x500?text=QuantumFlow+AI+Lab+Architecture" alt="Architecture Diagram" width="800"/>
 </div>
 
 ## 🧩 Core Modules
@@ -49,7 +50,7 @@ Uses RAG and LLMs to generate trading strategies based on user goals and market 
 Refines strategies using RL and Bayesian optimization, with multi-agent collaboration.
 
 ### 3. Real-Time Execution & Monitoring
-Executes strategies via OKX Swap API and monitors performance in real-time.
+Executes strategies via configurable exchange APIs and monitors performance in real-time.
 
 ### 4. Real-Time Communication
 Implements a WebSocket-based real-time data streaming system as an alternative to Kafka. This provides:
@@ -73,14 +74,14 @@ Mitigates risks using external data and NLP-based sentiment analysis.
 | Workflow Orchestration | LangChain (StateGraph, Tools, RAG) |
 | RL Framework | Stable Baselines3 |
 | Data Pipeline | FastAPI WebSockets |
-| APIs | OKX Market Data, Swap, and Simulation APIs |
+| APIs | Configurable Exchange APIs (Market Data, Trading, Simulation) |
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
 - Python 3.9+
-- OKX API credentials
+- Exchange API credentials (configurable)
 - OpenAI API key (or other LLM provider)
 - Modern web browser for WebSocket client
 
@@ -88,8 +89,8 @@ Mitigates risks using external data and NLP-based sentiment analysis.
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/ai-strategy-lab.git
-   cd ai-strategy-lab
+   git clone https://github.com/austinLorenzMccoy/quantumflow-ai-lab.git
+   cd quantumflow-ai-lab
    ```
 
 2. Create a virtual environment:
@@ -109,16 +110,66 @@ Mitigates risks using external data and NLP-based sentiment analysis.
    # Edit .env with your API keys and configuration
    ```
 
+   **Note**: The platform comes pre-configured with a Marketstack API key for real stock market data. You can also run in simulation mode without any external APIs.
+
+## 📊 Market Data Integration
+
+### Marketstack API
+
+QuantumFlow AI Lab is integrated with **Marketstack API** for real-time stock market data:
+
+- **170,000+ Stock Tickers** from 50+ countries
+- **70+ Stock Exchanges** worldwide
+- **Real-time & Historical Data** with multiple intervals
+- **Market Indices** (S&P 500, Dow Jones, NASDAQ, etc.)
+- **Automatic Fallback** to simulation mode if API is unavailable
+
+#### Available Endpoints:
+- `/api/market/data` - Get market overview with major indices
+- `/api/stocks/{symbol}` - Get real-time data for specific stocks (e.g., AAPL, MSFT, GOOGL)
+
+#### Example Usage:
+```bash
+# Get Apple stock data
+curl http://localhost:8001/api/stocks/AAPL
+
+# Get market overview
+curl http://localhost:8001/api/market/data
+```
+
 ### Running the Application
 
-1. Start the API server:
+#### Option 1: Interactive Demo (Recommended)
+
+1. Run the interactive demo:
    ```bash
-   python run.py
+   python run_demo.py
+   ```
+   
+   This will start the demo server and open an interactive dashboard in your browser.
+
+#### Option 2: Full Application
+
+1. Start the main API server:
+   ```bash
+   python -m app.main
    ```
 
 2. Access the API documentation:
    ```
    http://localhost:8000/docs
+   ```
+
+#### Option 3: Direct Demo Server
+
+1. Run the demo server directly:
+   ```bash
+   python api_demo.py
+   ```
+   
+2. Open the demo dashboard:
+   ```
+   http://localhost:8001
    ```
 
 3. Test the WebSocket functionality:
@@ -241,9 +292,9 @@ The AI Strategy Lab evaluates strategies using the following metrics:
 ## 🔄 Implementation Roadmap
 
 ### Phase 1 (Completed)
-- RAG pipeline with OKX historical data
+- RAG pipeline with historical market data
 - Multi-task LLM for strategy drafting
-- OKX Market Data API integration
+- Generic Market Data API integration
 - WebSocket-based real-time communication system
   - Connection management and message broadcasting
   - Trading dashboard with real-time charts
@@ -260,7 +311,7 @@ The AI Strategy Lab evaluates strategies using the following metrics:
   - DataAnalystAgent for market analysis and pattern detection
   - WebSocket integration for real-time agent communication
 - Swap API integration with function calling
-  - SwapService for executing cryptocurrency swaps via OKX API
+  - SwapService for executing cryptocurrency swaps via configurable exchange APIs
   - Transaction simulation for impact analysis
   - WebSocket notifications for real-time status updates
 
@@ -293,8 +344,8 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 This project is available on GitHub. To clone the repository:
 
 ```bash
-git clone https://github.com/austinLorenzMccoy/ai_strategylab.git
-cd ai_strategylab
+git clone https://github.com/austinLorenzMccoy/quantumflow-ai-lab.git
+cd quantumflow-ai-lab
 pip install -r requirements.txt
 ```
 
@@ -308,11 +359,11 @@ APP_NAME=AI_Strategy_Lab
 DEBUG=True
 LOG_LEVEL=INFO
 
-# OKX API credentials
-OKX_API_KEY=your_api_key
-OKX_SECRET_KEY=your_secret_key
-OKX_PASSPHRASE=your_passphrase
-OKX_API_BASE_URL=https://www.okx.com
+# Exchange API credentials (configurable for any exchange)
+MARKET_API_KEY=your_api_key
+MARKET_SECRET_KEY=your_secret_key
+MARKET_PASSPHRASE=your_passphrase
+MARKET_API_BASE_URL=https://api.example.com
 
 # LLM API settings
 OPENAI_API_KEY=your_openai_key
@@ -343,7 +394,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🙏 Acknowledgements
 
-- OKX for providing the API infrastructure
+- Various exchanges for providing API infrastructure
 - OpenAI for GPT models
 - Hugging Face for open-source models
 - The LangChain and Autogen communities

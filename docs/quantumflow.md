@@ -1,4 +1,4 @@
-\*\*Product Requirements Document (PRD) for AI Component: OKX AI Strategy Lab\*\*    
+\*\*Product Requirements Document (PRD) for AI Component: QuantumFlow AI Strategy Lab\*\*    
 \*\*Version 1.0\*\*    
 \*\*Author:\*\* \[Your Name\]    
 \*\*Date:\*\* \[Today’s Date\]  
@@ -8,7 +8,7 @@
 \#\#\# \*\*1. Objective\*\*    
 Develop an \*\*AI-driven strategy engine\*\* that:    
 \- Generates, optimizes, and adapts crypto trading strategies (arbitrage, momentum, etc.).    
-\- Integrates real-time OKX DEX data (Market Data API) and executes strategies via Swap API.    
+\- Integrates real-time market data from configurable exchanges and executes strategies via trading APIs.    
 \- Uses reinforcement learning (RL) for adaptive decision-making and multi-agent collaboration for complex workflows.  
 
 \---
@@ -27,7 +27,7 @@ A hybrid system combining \*\*multi-agent frameworks\*\*, \*\*retrieval-augmente
 \*\*Goal:\*\* Generate trading strategies based on user goals (arbitrage, momentum) and market data.    
 \*\*Components:\*\*    
 \- \*\*RAG (Retrieval-Augmented Generation):\*\*    
-  \- \*\*Retriever:\*\* Fetches historical OKX DEX data (Market Data API) and pre-analyzed strategy patterns.    
+  \- \*\*Retriever:\*\* Fetches historical market data from configurable exchanges and pre-analyzed strategy patterns.    
   \- \*\*Generator:\*\* GPT-4 or Llama-3 to synthesize strategies (e.g., "Buy ETH when RSI \< 30 and volume spikes").    
   \- \*\*Output:\*\* Human-readable strategy logic with code snippets (Python).    
 \- \*\*Multi-Task LLM:\*\*    

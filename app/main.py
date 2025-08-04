@@ -18,7 +18,7 @@ settings = get_settings()
 # Initialize FastAPI app
 app = FastAPI(
     title=settings.APP_NAME,
-    description="AI Strategy Lab for OKX crypto trading",
+    description="QuantumFlow AI Lab - Advanced crypto trading strategy platform",
     version="1.0.0",
 )
 
@@ -41,7 +41,7 @@ app.include_router(websocket_router)
 @app.get("/")
 async def root():
     """Root endpoint for health check."""
-    return {"status": "healthy", "message": "AI Strategy Lab API is running"}
+    return {"status": "healthy", "message": "QuantumFlow AI Lab API is running"}
 
 
 @app.get("/health")

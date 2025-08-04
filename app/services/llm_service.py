@@ -1,6 +1,10 @@
 import logging
 import json
 from typing import List, Dict, Any, Optional
+try:
+    from langchain_groq import ChatGroq
+except ImportError:
+    ChatGroq = None
 from langchain.llms import OpenAI
 from langchain.chat_models import ChatOpenAI
 from langchain.prompts import PromptTemplate
@@ -19,8 +23,10 @@ class LLMService:
     
     def __init__(self):
         """Initialize the LLM service."""
-        self.api_key = settings.OPENAI_API_KEY
+        self.provider = settings.LLM_PROVIDER
         self.model_name = settings.LLM_MODEL
+        self.groq_api_key = settings.GROQ_API_KEY
+        self.openai_api_key = settings.OPENAI_API_KEY
         self.llm = None
         self.chat_model = None
         
@@ -28,25 +34,43 @@ class LLMService:
         self._init_models()
     
     def _init_models(self):
-        """Initialize LLM models."""
+        """Initialize LLM models based on provider."""
         try:
-            logger.info(f"Initializing LLM model: {self.model_name}")
+            logger.info(f"Initializing LLM model: {self.model_name} with provider: {self.provider}")
             
-            # Initialize standard LLM
-            self.llm = OpenAI(
-                api_key=self.api_key,
-                model_name=self.model_name,
-                temperature=0.2,
-                max_tokens=2048
-            )
-            
-            # Initialize chat model
-            self.chat_model = ChatOpenAI(
-                api_key=self.api_key,
-                model_name=self.model_name,
-                temperature=0.2,
-                max_tokens=2048
-            )
+            if self.provider == "groq" and ChatGroq and self.groq_api_key:
+                # Initialize Groq chat model
+                self.chat_model = ChatGroq(
+                    api_key=self.groq_api_key,
+                    model_name=self.model_name,
+                    temperature=0.2,
+                    max_tokens=2048
+                )
+                self.llm = self.chat_model  # Use chat model as standard LLM too
+                logger.info("Initialized Groq LLM successfully")
+                
+            elif self.provider == "openai" and self.openai_api_key:
+                # Initialize OpenAI models
+                self.llm = OpenAI(
+                    api_key=self.openai_api_key,
+                    model_name=self.model_name,
+                    temperature=0.2,
+                    max_tokens=2048
+                )
+                
+                self.chat_model = ChatOpenAI(
+                    api_key=self.openai_api_key,
+                    model_name=self.model_name,
+                    temperature=0.2,
+                    max_tokens=2048
+                )
+                logger.info("Initialized OpenAI LLM successfully")
+                
+            else:
+                # Fallback to mock/simulation mode
+                logger.warning(f"No valid API key found for provider {self.provider}, using simulation mode")
+                self.llm = None
+                self.chat_model = None
             
             logger.info("LLM models initialized successfully")
         
@@ -111,21 +135,27 @@ class LLMService:
                 """
             )
             
-            # Create LLM chain
-            chain = LLMChain(
-                llm=self.llm,
-                prompt=strategy_prompt
-            )
-            
-            # Run chain to generate strategy
-            result = await chain.arun(
-                strategy_type=strategy_type.value,
-                trading_pairs=", ".join(trading_pairs),
-                risk_tolerance=risk_tolerance.value,
-                description=description or f"Generate a {strategy_type.value} strategy for {', '.join(trading_pairs)}",
-                template_examples=template_examples,
-                constraints=constraints_text
-            )
+            # Generate strategy using LLM or simulation
+            if self.llm and self.chat_model:
+                # Create LLM chain
+                chain = LLMChain(
+                    llm=self.llm,
+                    prompt=strategy_prompt
+                )
+                
+                # Run chain to generate strategy
+                result = await chain.arun(
+                    strategy_type=strategy_type.value,
+                    trading_pairs=", ".join(trading_pairs),
+                    risk_tolerance=risk_tolerance.value,
+                    description=description or f"Generate a {strategy_type.value} strategy for {', '.join(trading_pairs)}",
+                    template_examples=template_examples,
+                    constraints=constraints_text
+                )
+            else:
+                # Simulation mode - generate strategy without LLM
+                logger.info("Using simulation mode for strategy generation")
+                result = f"Simulated {strategy_type.value} strategy for {', '.join(trading_pairs)}"
             
             # Parse result into Strategy object
             # In a real implementation, we would use proper parsing
