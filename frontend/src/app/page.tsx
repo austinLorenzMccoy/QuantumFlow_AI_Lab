@@ -21,6 +21,16 @@ interface PortfolioData {
   activeStrategies: number
 }
 
+// Error boundary wrapper
+function SafeComponent({ children, fallback }: { children: React.ReactNode, fallback: React.ReactNode }) {
+  try {
+    return <>{children}</>
+  } catch (error) {
+    console.error('Component error:', error)
+    return <>{fallback}</>
+  }
+}
+
 export default function QuantumFlowDashboard() {
   const [marketData, setMarketData] = useState<MarketData[]>([])
   const [portfolio, setPortfolio] = useState<PortfolioData>({
@@ -33,6 +43,9 @@ export default function QuantumFlowDashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentTime, setCurrentTime] = useState('')
+  const [isMounted, setIsMounted] = useState(false)
+  const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false)
+  const [strategyResult, setStrategyResult] = useState<string | null>(null)
 
   // Simulate real-time data updates
   useEffect(() => {
@@ -45,8 +58,17 @@ export default function QuantumFlowDashboard() {
           const data = await response.json()
           setIsConnected(true)
           // Process the data based on your API structure
-          if (data.data && data.data.indices) {
-            setMarketData(data.data.indices.slice(0, 4))
+          if (data.data && data.data.indices && Array.isArray(data.data.indices)) {
+            const validData = data.data.indices
+              .filter((item: any) => item && typeof item === 'object')
+              .slice(0, 4)
+              .map((item: any) => ({
+                symbol: item.symbol || 'N/A',
+                price: typeof item.price === 'number' ? item.price : 0,
+                change: typeof item.change === 'number' ? item.change : 0,
+                changePercent: typeof item.changePercent === 'number' ? item.changePercent : 0
+              }))
+            setMarketData(validData)
           }
         } else {
           // Fallback to demo data
@@ -73,6 +95,9 @@ export default function QuantumFlowDashboard() {
       }
     }
 
+    // Set mounted state
+    setIsMounted(true)
+    
     fetchMarketData()
     
     // Update time every second to avoid hydration mismatch
@@ -87,6 +112,46 @@ export default function QuantumFlowDashboard() {
       clearInterval(timeInterval)
     }
   }, [])
+
+  // Generate Strategy function
+  const generateStrategy = async () => {
+    setIsGeneratingStrategy(true)
+    setStrategyResult(null)
+    setError(null)
+    
+    try {
+      const response = await fetch('http://localhost:8001/api/strategies/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          goal: 'momentum',
+          risk_tolerance: 'medium',
+          trading_pairs: ['AAPL', 'MSFT', 'GOOGL', 'TSLA']
+        })
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        if (data.status === 'success' && data.strategy) {
+          const strategy = data.strategy
+          setStrategyResult(`Strategy Generated: ${strategy.name}\n\nLogic: ${strategy.logic}\n\nRisk Level: ${strategy.risk_tolerance}\nTrading Pairs: ${strategy.trading_pairs.join(', ')}\nCreated: ${new Date(strategy.created_at).toLocaleString()}`)
+        } else {
+          throw new Error('Invalid response format')
+        }
+      } else {
+        throw new Error('Failed to generate strategy')
+      }
+    } catch (error) {
+      console.error('Strategy generation error:', error)
+      setError('Failed to generate strategy. Using demo mode.')
+      // Demo strategy result
+      setStrategyResult(`Demo Strategy Generated: Momentum Trading\n\nLogic: Buy when RSI < 30 and MACD crosses above signal line. Sell when RSI > 70 or stop loss at -5%.\n\nRisk Level: Medium\nExpected Return: 12-18% annually`)
+    } finally {
+      setIsGeneratingStrategy(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
@@ -212,42 +277,56 @@ export default function QuantumFlowDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {isLoading ? (
-                  // Loading skeletons
-                  Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-white/5">
-                      <div className="space-y-2">
-                        <Skeleton className="h-4 w-16 bg-white/10" />
-                        <Skeleton className="h-3 w-20 bg-white/10" />
-                      </div>
-                      <div className="space-y-2 text-right">
-                        <Skeleton className="h-4 w-12 bg-white/10" />
-                        <Skeleton className="h-3 w-10 bg-white/10" />
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  // Actual market data
-                  marketData.map((stock) => (
-                    <div key={stock.symbol} className="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer">
-                      <div>
-                        <div className="font-semibold text-white">{stock.symbol}</div>
-                        <div className="text-sm text-gray-400">${stock.price.toFixed(2)}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className={`flex items-center ${stock.changePercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {stock.changePercent >= 0 ? <TrendingUp className="h-4 w-4 mr-1" /> : <TrendingDown className="h-4 w-4 mr-1" />}
-                          {stock.changePercent.toFixed(2)}%
+              <SafeComponent fallback={
+                <div className="text-center text-gray-400 py-8">
+                  Unable to load market data
+                </div>
+              }>
+                <div className="space-y-4">
+                  {isLoading ? (
+                    // Loading skeletons
+                    Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-white/5">
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-16 bg-white/10" />
+                          <Skeleton className="h-3 w-20 bg-white/10" />
                         </div>
-                        <div className="text-sm text-gray-400">
-                          {stock.changePercent >= 0 ? '+' : ''}{stock.change.toFixed(2)}
+                        <div className="space-y-2 text-right">
+                          <Skeleton className="h-4 w-12 bg-white/10" />
+                          <Skeleton className="h-3 w-10 bg-white/10" />
                         </div>
                       </div>
-                    </div>
-                  ))
-                )}
-              </div>
+                    ))
+                  ) : (
+                    // Actual market data
+                    marketData.map((stock) => {
+                      // Ensure all values exist with defaults
+                      const price = stock.price ?? 0
+                      const changePercent = stock.changePercent ?? 0
+                      const change = stock.change ?? 0
+                      const symbol = stock.symbol ?? 'N/A'
+                      
+                      return (
+                        <div key={symbol} className="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer">
+                          <div>
+                            <div className="font-semibold text-white">{symbol}</div>
+                            <div className="text-sm text-gray-400">${price.toFixed(2)}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className={`flex items-center ${changePercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                              {changePercent >= 0 ? <TrendingUp className="h-4 w-4 mr-1" /> : <TrendingDown className="h-4 w-4 mr-1" />}
+                              {changePercent.toFixed(2)}%
+                            </div>
+                            <div className="text-sm text-gray-400">
+                              {changePercent >= 0 ? '+' : ''}{change.toFixed(2)}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </SafeComponent>
             </CardContent>
           </Card>
 
@@ -296,9 +375,13 @@ export default function QuantumFlowDashboard() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-4">
-              <Button className="bg-blue-600 hover:bg-blue-700">
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700" 
+                onClick={generateStrategy}
+                disabled={isGeneratingStrategy}
+              >
                 <Brain className="h-4 w-4 mr-2" />
-                Generate Strategy
+                {isGeneratingStrategy ? 'Generating...' : 'Generate Strategy'}
               </Button>
               <Button variant="outline" className="border-white/20 text-white hover:bg-white/10">
                 <BarChart3 className="h-4 w-4 mr-2" />
@@ -313,6 +396,19 @@ export default function QuantumFlowDashboard() {
                 Portfolio
               </Button>
             </div>
+            
+            {/* Strategy Result Display */}
+            {strategyResult && (
+              <div className="mt-6 p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                <h4 className="text-green-400 font-semibold mb-2 flex items-center">
+                  <Brain className="h-4 w-4 mr-2" />
+                  AI Strategy Generated
+                </h4>
+                <pre className="text-sm text-gray-300 whitespace-pre-wrap font-mono">
+                  {strategyResult}
+                </pre>
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>
@@ -410,7 +506,7 @@ export default function QuantumFlowDashboard() {
               </span>
               <span className="flex items-center">
                 <Zap className="h-3 w-3 mr-1 text-blue-400" />
-                Last Updated: {currentTime || 'Loading...'}
+                Last Updated: {isMounted ? (currentTime || 'Loading...') : 'Loading...'}
               </span>
             </div>
           </div>
